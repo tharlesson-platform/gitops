@@ -10,7 +10,26 @@ else
   tracked_paths="$(find . -type f | sed 's|^\./||')"
 fi
 
-invalid_paths="$(echo "$tracked_paths" | grep -E '[A-Z ]' || true)"
+invalid_paths="$(
+  while IFS= read -r path; do
+    [[ -n "$path" ]] || continue
+
+    if [[ "$path" == *" "* ]]; then
+      echo "$path"
+      continue
+    fi
+
+    case "$path" in
+      .github/*|.gitattributes|.gitignore|.markdownlint.json|.yamllint.yml|LICENSE|README.md|SECURITY.md|CONTRIBUTING.md|GOVERNANCE.md|*/README.md)
+        continue
+        ;;
+    esac
+
+    if [[ "$path" =~ [A-Z] ]]; then
+      echo "$path"
+    fi
+  done <<< "$tracked_paths"
+)"
 if [[ -n "$invalid_paths" ]]; then
   echo "ERROR: Found paths with uppercase letters or spaces:"
   echo "$invalid_paths"
