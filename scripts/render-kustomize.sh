@@ -5,9 +5,9 @@ ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$ROOT_DIR"
 
 if command -v kustomize >/dev/null 2>&1; then
-  KUSTOMIZE_CMD=(kustomize build)
+  KUSTOMIZE_CMD=(kustomize build --load-restrictor=LoadRestrictionsNone)
 elif command -v kubectl >/dev/null 2>&1; then
-  KUSTOMIZE_CMD=(kubectl kustomize)
+  KUSTOMIZE_CMD=(kubectl kustomize --load-restrictor=LoadRestrictionsNone)
 else
   echo "ERROR: kustomize (or kubectl) not found."
   exit 1
@@ -33,4 +33,3 @@ for dir in "${KUSTOMIZATION_DIRS[@]}"; do
 done
 
 echo "Kustomize rendering completed."
-
