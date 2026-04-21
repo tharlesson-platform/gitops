@@ -1,0 +1,8 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: sample-worker-config
+data:
+  ENVIRONMENT: prod
+  QUEUE_NAME: sample-jobs-prod
+  WORKER_CONCURRENCY: "4"

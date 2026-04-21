@@ -1,0 +1,42 @@
+name: YAML Lint
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+jobs:
+  yaml-lint:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install yamllint
+        run: pip install yamllint
+
+      - name: Run YAML lint
+        run: |
+          chmod +x scripts/*.sh
+          ./scripts/check-yaml.sh
+
+      - name: Workflow summary
+        if: always()
+        run: |
+          {
+            echo "## YAML Lint"
+            echo ""
+            echo "- Scope: all YAML files in repository"
+            echo "- Command: \`./scripts/check-yaml.sh\`"
+            echo "- Status: ${{ job.status }}"
+          } >> "$GITHUB_STEP_SUMMARY"

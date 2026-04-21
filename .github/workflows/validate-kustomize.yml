@@ -1,0 +1,47 @@
+name: Validate Kustomize
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+jobs:
+  kustomize-build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup kustomize
+        uses: imranismail/setup-kustomize@v2
+        with:
+          kustomize-version: "5.4.2"
+
+      - name: Install kubeconform
+        run: |
+          curl -sSL -o /tmp/kubeconform.tar.gz https://github.com/yannh/kubeconform/releases/download/v0.6.7/kubeconform-linux-amd64.tar.gz
+          tar -xzf /tmp/kubeconform.tar.gz -C /tmp
+          sudo mv /tmp/kubeconform /usr/local/bin/kubeconform
+          kubeconform -v
+
+      - name: Render all kustomizations
+        run: |
+          chmod +x scripts/*.sh
+          ./scripts/render-kustomize.sh
+
+      - name: Workflow summary
+        if: always()
+        run: |
+          k_count=$(find apps clusters argocd -type f \( -name 'kustomization.yaml' -o -name 'kustomization.yml' \) | wc -l | tr -d ' ')
+          {
+            echo "## Kustomize Validation"
+            echo ""
+            echo "- Kustomizations checked: ${k_count}"
+            echo "- Includes schema validation via kubeconform when available"
+            echo "- Status: ${{ job.status }}"
+          } >> "$GITHUB_STEP_SUMMARY"

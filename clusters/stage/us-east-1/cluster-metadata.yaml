@@ -1,0 +1,10 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: cluster-metadata
+  namespace: argocd
+data:
+  clusterName: stage-us-east-1
+  environment: stage
+  region: us-east-1
+  ownerTeam: platform

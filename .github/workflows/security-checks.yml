@@ -1,0 +1,115 @@
+name: Security Checks
+
+on:
+  pull_request:
+    branches:
+      - main
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: read
+  pull-requests: read
+
+jobs:
+  secret-scan:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Run gitleaks
+        uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Workflow summary
+        if: always()
+        run: |
+          {
+            echo "## Secret Scan"
+            echo ""
+            echo "- Tool: gitleaks"
+            echo "- Status: ${{ job.status }}"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+  critical-path-guard:
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Detect critical path changes
+        run: |
+          chmod +x scripts/*.sh
+          ./scripts/check-critical-paths.sh "${{ github.event.pull_request.base.sha }}" "${{ github.event.pull_request.head.sha }}"
+
+      - name: Enforce production approval label
+        id: prod_guard
+        run: |
+          set -euo pipefail
+          changed_files=$(git diff --name-only "${{ github.event.pull_request.base.sha }}" "${{ github.event.pull_request.head.sha }}")
+
+          if echo "$changed_files" | grep -q '^clusters/prod/'; then
+            echo "prod_changed=true" >> "$GITHUB_OUTPUT"
+            labels=$(jq -r '.pull_request.labels[].name' "$GITHUB_EVENT_PATH")
+            if ! echo "$labels" | grep -qx 'prod-approved'; then
+              echo "ERROR: changes in clusters/prod/ require label 'prod-approved'."
+              exit 1
+            fi
+          else
+            echo "prod_changed=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Workflow summary
+        if: always()
+        run: |
+          {
+            echo "## Critical Path Guard"
+            echo ""
+            echo "- Path guard for: .github/workflows/, argocd/, clusters/prod/, policies/"
+            echo "- Prod label check: \`prod-approved\`"
+            echo "- Production files changed: ${{ steps.prod_guard.outputs.prod_changed || 'false' }}"
+            echo "- Status: ${{ job.status }}"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+  prod-direct-change-alert:
+    if: github.event_name == 'push'
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Alert direct changes in production paths
+        run: |
+          set -euo pipefail
+          changed_files=$(git diff --name-only "${{ github.event.before }}" "${{ github.sha }}")
+          if echo "$changed_files" | grep -q '^clusters/prod/'; then
+            echo "::warning::Production paths changed on push to main. Ensure this came from an approved PR."
+            echo "prod_push_change=true" >> "$GITHUB_ENV"
+          else
+            echo "prod_push_change=false" >> "$GITHUB_ENV"
+          fi
+
+      - name: Workflow summary
+        if: always()
+        run: |
+          {
+            echo "## Production Push Alert"
+            echo ""
+            echo "- Trigger: push to main"
+            echo "- Production path changed: ${prod_push_change:-false}"
+            echo "- Action: warning only (branch protection should block direct pushes)"
+            echo "- Status: ${{ job.status }}"
+          } >> "$GITHUB_STEP_SUMMARY"

@@ -1,0 +1,22 @@
+apiVersion: argoproj.io/v1alpha1
+kind: AppProject
+metadata:
+  name: platform
+  namespace: argocd
+spec:
+  description: Platform-level components and bootstrap workloads.
+  sourceRepos:
+    - https://github.com/your-org/your-gitops-repo.git
+  destinations:
+    - namespace: argocd
+      server: "*"
+    - namespace: kube-system
+      server: "*"
+    - namespace: ingress-nginx
+      server: "*"
+  clusterResourceWhitelist:
+    - group: "*"
+      kind: "*"
+  namespaceResourceWhitelist:
+    - group: "*"
+      kind: "*"

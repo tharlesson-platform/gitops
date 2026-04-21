@@ -1,0 +1,55 @@
+name: Release Docs Quality
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+    paths:
+      - "README.md"
+      - "docs/**"
+      - "policies/**"
+      - "CONTRIBUTING.md"
+      - "SECURITY.md"
+      - "GOVERNANCE.md"
+
+permissions:
+  contents: read
+
+jobs:
+  docs-quality:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Install markdownlint
+        run: npm install -g markdownlint-cli
+
+      - name: Lint markdown
+        run: markdownlint "**/*.md" --ignore node_modules
+
+      - name: Check links
+        uses: lycheeverse/lychee-action@v2
+        with:
+          args: --verbose --no-progress README.md docs/**/*.md policies/**/*.md CONTRIBUTING.md SECURITY.md GOVERNANCE.md
+          fail: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Workflow summary
+        if: always()
+        run: |
+          {
+            echo "## Docs Quality"
+            echo ""
+            echo "- Markdown lint: enabled"
+            echo "- Link check: enabled"
+            echo "- Status: ${{ job.status }}"
+          } >> "$GITHUB_STEP_SUMMARY"

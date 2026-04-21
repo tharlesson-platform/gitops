@@ -1,0 +1,79 @@
+name: Validate Manifests and Repository Rules
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+jobs:
+  repository-rules:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Validate repository structure and standards
+        run: |
+          chmod +x scripts/*.sh
+          ./scripts/check-structure.sh
+          ./scripts/check-required-files.sh
+          ./scripts/check-naming.sh
+
+      - name: Check critical path changes (PR)
+        if: github.event_name == 'pull_request'
+        run: ./scripts/check-critical-paths.sh "${{ github.event.pull_request.base.sha }}" "${{ github.event.pull_request.head.sha }}"
+
+      - name: Check critical path changes (push)
+        if: github.event_name == 'push'
+        run: ./scripts/check-critical-paths.sh "${{ github.event.before }}" "${{ github.sha }}"
+
+      - name: Workflow summary
+        if: always()
+        run: |
+          {
+            echo "## Repository Rules"
+            echo ""
+            echo "- Structure validation"
+            echo "- Required files validation"
+            echo "- Naming convention validation"
+            echo "- Critical path change detection"
+            echo "- Status: ${{ job.status }}"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+  argocd-manifests:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install kubeconform
+        run: |
+          curl -sSL -o /tmp/kubeconform.tar.gz https://github.com/yannh/kubeconform/releases/download/v0.6.7/kubeconform-linux-amd64.tar.gz
+          tar -xzf /tmp/kubeconform.tar.gz -C /tmp
+          sudo mv /tmp/kubeconform /usr/local/bin/kubeconform
+          kubeconform -v
+
+      - name: Validate Argo CD manifests
+        run: |
+          chmod +x scripts/*.sh
+          ./scripts/validate-argocd.sh
+
+      - name: Workflow summary
+        if: always()
+        run: |
+          file_count=$(find argocd -type f \( -name '*.yaml' -o -name '*.yml' \) | wc -l | tr -d ' ')
+          {
+            echo "## Argo CD Manifest Validation"
+            echo ""
+            echo "- Files validated: ${file_count}"
+            echo "- Validation: kubeconform (strict, ignore missing schemas)"
+            echo "- Status: ${{ job.status }}"
+          } >> "$GITHUB_STEP_SUMMARY"

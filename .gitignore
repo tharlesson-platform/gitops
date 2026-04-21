@@ -1,0 +1,26 @@
+# Ignore local editor and OS files
+.DS_Store
+Thumbs.db
+*.swp
+*.tmp
+
+# IDE
+.vscode/
+.idea/
+
+# Tool caches
+.tmp/
+.cache/
+*.log
+
+# Kubernetes local renders
+rendered/
+
+# Secrets placeholders generated locally
+*.secrets.yaml
+*.dec.yaml
+
+# Terraform or IaC (if used later)
+.terraform/
+*.tfstate
+*.tfstate.*

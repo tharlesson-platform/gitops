@@ -1,0 +1,7 @@
+# Replace placeholders with real teams/users.
+*                                   @your-org/platform-team
+
+/.github/workflows/                 @your-org/platform-team @your-org/sre-leads
+/argocd/                            @your-org/platform-team
+/clusters/prod/                     @your-org/platform-team @your-org/security-team
+/policies/                          @your-org/platform-team @your-org/security-team

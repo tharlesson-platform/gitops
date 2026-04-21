@@ -1,0 +1,19 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+resources:
+  - ../../base
+
+namespace: apps-dev
+nameSuffix: -dev
+
+commonLabels:
+  environment: dev
+
+images:
+  - name: ghcr.io/example-org/sample-worker
+    newTag: dev-2026.03
+
+patches:
+  - path: replicas.yaml
+  - path: configmap.yaml

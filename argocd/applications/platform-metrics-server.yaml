@@ -1,0 +1,18 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: platform-metrics-server
+  namespace: argocd
+spec:
+  project: platform
+  source:
+    repoURL: https://github.com/your-org/your-gitops-repo.git
+    targetRevision: main
+    path: apps/platform-metrics-server/overlays/dev
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: kube-system
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true

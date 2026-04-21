@@ -1,0 +1,44 @@
+apiVersion: argoproj.io/v1alpha1
+kind: ApplicationSet
+metadata:
+  name: apps-by-cluster
+  namespace: argocd
+spec:
+  goTemplate: true
+  goTemplateOptions:
+    - missingkey=error
+  generators:
+    - matrix:
+        generators:
+          - clusters:
+              selector:
+                matchLabels:
+                  gitops.argocd.io/managed: "true"
+          - list:
+              elements:
+                - appName: sample-api
+                  basePath: apps/sample-api/overlays
+                - appName: sample-worker
+                  basePath: apps/sample-worker/overlays
+  template:
+    metadata:
+      name: '{{.appName}}-{{.name}}'
+      labels:
+        gitops.argocd.io/cluster: '{{.name}}'
+        gitops.argocd.io/environment: '{{index .metadata.labels "environment"}}'
+    spec:
+      project: apps
+      source:
+        repoURL: https://github.com/your-org/your-gitops-repo.git
+        targetRevision: main
+        path: '{{.basePath}}/{{index .metadata.labels "environment"}}'
+      destination:
+        server: '{{.server}}'
+        namespace: 'apps-{{index .metadata.labels "environment"}}'
+      syncPolicy:
+        syncOptions:
+          - CreateNamespace=true
+          - PruneLast=true
+        automated:
+          prune: true
+          selfHeal: true

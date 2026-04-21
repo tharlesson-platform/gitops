@@ -1,0 +1,64 @@
+apiVersion: argoproj.io/v1alpha1
+kind: ApplicationSet
+metadata:
+  name: apps-by-env
+  namespace: argocd
+spec:
+  goTemplate: true
+  goTemplateOptions:
+    - missingkey=error
+  generators:
+    - list:
+        elements:
+          - app: sample-api
+            env: dev
+            path: apps/sample-api/overlays/dev
+            namespace: apps-dev
+            cluster: https://kubernetes.default.svc
+          - app: sample-api
+            env: stage
+            path: apps/sample-api/overlays/stage
+            namespace: apps-stage
+            cluster: https://kubernetes.default.svc
+          - app: sample-api
+            env: prod
+            path: apps/sample-api/overlays/prod
+            namespace: apps-prod
+            cluster: https://kubernetes.default.svc
+          - app: sample-worker
+            env: dev
+            path: apps/sample-worker/overlays/dev
+            namespace: apps-dev
+            cluster: https://kubernetes.default.svc
+          - app: sample-worker
+            env: stage
+            path: apps/sample-worker/overlays/stage
+            namespace: apps-stage
+            cluster: https://kubernetes.default.svc
+          - app: sample-worker
+            env: prod
+            path: apps/sample-worker/overlays/prod
+            namespace: apps-prod
+            cluster: https://kubernetes.default.svc
+  template:
+    metadata:
+      name: '{{.app}}-{{.env}}'
+      labels:
+        app.kubernetes.io/part-of: gitops-catalog
+        gitops.argocd.io/environment: '{{.env}}'
+    spec:
+      project: apps
+      source:
+        repoURL: https://github.com/your-org/your-gitops-repo.git
+        targetRevision: main
+        path: '{{.path}}'
+      destination:
+        server: '{{.cluster}}'
+        namespace: '{{.namespace}}'
+      syncPolicy:
+        syncOptions:
+          - CreateNamespace=true
+          - PruneLast=true
+        automated:
+          prune: true
+          selfHeal: true

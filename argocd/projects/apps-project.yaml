@@ -1,0 +1,22 @@
+apiVersion: argoproj.io/v1alpha1
+kind: AppProject
+metadata:
+  name: apps
+  namespace: argocd
+spec:
+  description: Application workloads managed by product/platform teams.
+  sourceRepos:
+    - https://github.com/your-org/your-gitops-repo.git
+  destinations:
+    - namespace: apps-dev
+      server: "*"
+    - namespace: apps-stage
+      server: "*"
+    - namespace: apps-prod
+      server: "*"
+  clusterResourceWhitelist:
+    - group: "*"
+      kind: "*"
+  namespaceResourceWhitelist:
+    - group: "*"
+      kind: "*"

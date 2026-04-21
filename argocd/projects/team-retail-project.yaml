@@ -1,0 +1,22 @@
+apiVersion: argoproj.io/v1alpha1
+kind: AppProject
+metadata:
+  name: team-retail
+  namespace: argocd
+spec:
+  description: Example of team segregation with scoped namespaces.
+  sourceRepos:
+    - https://github.com/your-org/your-gitops-repo.git
+  destinations:
+    - namespace: retail-dev
+      server: "*"
+    - namespace: retail-stage
+      server: "*"
+    - namespace: retail-prod
+      server: "*"
+  clusterResourceWhitelist:
+    - group: "*"
+      kind: "*"
+  namespaceResourceWhitelist:
+    - group: "*"
+      kind: "*"

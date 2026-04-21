@@ -1,0 +1,8 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: sample-worker-config
+data:
+  ENVIRONMENT: stage
+  QUEUE_NAME: sample-jobs-stage
+  WORKER_CONCURRENCY: "2"

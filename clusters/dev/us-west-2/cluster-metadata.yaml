@@ -1,0 +1,10 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: cluster-metadata
+  namespace: argocd
+data:
+  clusterName: dev-us-west-2
+  environment: dev
+  region: us-west-2
+  ownerTeam: platform

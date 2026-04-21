@@ -1,0 +1,33 @@
+name: Scaffold Smoke
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+jobs:
+  scaffold:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Generate sample app
+        run: |
+          chmod +x scripts/create-app.sh
+          ./scripts/create-app.sh \
+            --name scaffold-smoke \
+            --image ghcr.io/example-org/scaffold-smoke:0.1.0 \
+            --port 8080
+
+      - name: Assert generated structure
+        run: |
+          test -f apps/scaffold-smoke/base/deployment.yaml
+          test -f apps/scaffold-smoke/base/service.yaml
+          test -f apps/scaffold-smoke/overlays/dev/kustomization.yaml
+          test -f apps/scaffold-smoke/overlays/stage/kustomization.yaml
+          test -f apps/scaffold-smoke/overlays/prod/kustomization.yaml
