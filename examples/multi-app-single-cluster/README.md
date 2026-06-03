@@ -19,7 +19,7 @@ Gerenciar múltiplas apps no mesmo cluster com padrão base/overlays.
 kubectl apply -f argocd/applicationsets/apps-by-env.yaml
 ```
 
-3. Conferir aplicações geradas:
+1. Conferir aplicações geradas:
 
 ```bash
 argocd app list

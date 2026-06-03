@@ -18,7 +18,7 @@ Subir uma única aplicação (`sample-api`) em um único cluster usando Argo CD 
 kubectl apply -f argocd/applications/sample-app.yaml
 ```
 
-3. Verificar sincronização:
+1. Verificar sincronização:
 
 ```bash
 argocd app get sample-app
