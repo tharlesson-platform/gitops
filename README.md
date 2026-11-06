@@ -311,3 +311,67 @@ Substitua os valores abaixo antes de usar em ambiente real:
 ---
 
 Se você usar este repositório como base pública no GitHub, recomenda-se criar uma release inicial (`v0.1.0`) após ajustar placeholders e habilitar branch protection/rulesets.
+
+## Validação local isolada de CI
+
+Os nove jobs dos seis workflows existentes usam somente a label exclusiva
+`gitops-run-${{ github.run_id }}`, com timeout de 20 minutos. Gatilhos, filtros,
+condições PR/push/manual, permissões e checks originais permanecem preservados.
+Checkout usa commit completo da action, head exato do PR ou SHA do push,
+`persist-credentials: false` e histórico completo nos jobs que já exigiam
+`fetch-depth: 0`. A admissão exata é responsabilidade do controlador separado;
+este patch não instala perfil, autoriza forks/SHA nem dispara workflow.
+
+Cada job exige marker Linux ARM64 e nega mounts compartilhados, SSH agent,
+credenciais/perfis AWS e variáveis do gateway local de artifacts. Arquivos AWS
+são nulos e metadata é desativada. Kustomize 5.4.2, kubeconform 0.6.7 e gitleaks
+8.30.1 usam archives oficiais Linux ARM64 com SHA256 fixos antes da extração,
+instalados apenas em RUNNER_TEMP, sem sudo. Actions são pinadas por commit;
+Node 20, markdownlint, lychee e Python/yamllint continuam com o escopo original.
+Markdownlint fica em prefixo temporário próprio, sem instalação global.
+
+O scan gitleaks continua completo (`git`, histórico integral, redact, exit-code 1),
+sem exclusões novas. Os argumentos e a falha obrigatória do lychee permanecem;
+o token GitHub somente leitura já declarado nesse passo não tem permissões
+ampliadas. Scripts de validação, flags de schema, policies e manifests não mudam.
+O workflow acrescenta validação dos renders com extensão `.yaml`: kubeconform
+0.6.7 ignora o temporário sem extensão do script original. O script permanece
+intacto; os mesmos renders são checados de fato, sem ampliar ignores ou schemas.
+A opção original de ignorar schemas ausentes continua visível, sem alegação de
+que CRDs sem schema foram validados.
+
+Mudanças em `.github/workflows/` são críticas e exigem revisão técnica reforçada,
+com ownership válido e trilha de auditoria. Produção continua exigindo aprovação
+humana; `prod-approved` é obrigatória pelo gate quando muda `clusters/prod/`.
+Nenhuma label é aplicada por esta migração. O bootstrap de ownership e o preflight
+da proteção exigidos antes do merge estão descritos abaixo.
+
+Apps/ApplicationSets em main com prune/self-heal, ambientes, overlays, projetos
+e políticas permanecem intactos. CI não aplica manifests nem promove ambientes.
+Provas nativas usam HOME/caches próprios e ambiente sem AWS/perfis/SSO/tokens
+herdados; downloads e links são anônimos. Prova Darwin ARM64 não substitui CI
+real Linux ARM64 nem comprova estado de cluster. Sem Docker/VM, Root/runtime,
+API write, commit/push ou setup de Code Quality nesta preparação.
+Rollback desta fase é não publicar/admitir a fonte, após revisão independente.
+
+### Ownership e proteção da integração CI
+
+Este patch substitui os placeholders de CODEOWNERS pelo time existente
+`@tharlesson-platform/dev`, com permissão de escrita já concedida neste repositório.
+Não cria times, membros ou permissões; esse time não representa equipes distintas
+SRE/Security. Os padrões de paths permanecem iguais. A revisão técnica independente
+da automação deve identificar os agentes autores/revisores e o SHA exato; ela não
+é uma aprovação humana de produção nem um evento GitHub APPROVED inexistente.
+
+A integração deve ocorrer por PR, com checks aplicáveis verdes, conversas resolvidas
+e proteção de `main` confirmada por leitura da API. A configuração proposta exige
+os oito checks que executam no PR, vinculados ao app GitHub Actions, e não inclui
+`prod-direct-change-alert`, exclusivo de push. Regras mais fortes existentes devem
+ser preservadas. A regra não acrescenta um contador de aprovações humanas que a
+policy CI não exige; o autor de um PR não pode aprovar o próprio PR no GitHub.
+
+Este é o bootstrap do ownership: o CODEOWNERS da base ainda contém placeholders;
+não se presume solicitação retroativa de code owner. Nenhum manifest/overlay,
+regra de promoção ou `prod-approved` é alterado. Produção continua exigindo a
+aprovação manual documentada. A proteção proposta só será aplicada com preflight
+e readback próprios e não é instalada pelo código deste patch.
