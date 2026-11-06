@@ -1,7 +1,7 @@
-# Replace placeholders with real teams/users.
-*                                   @your-org/platform-team
+# Existing repository write team; no membership or permission grant.
+*                                   @tharlesson-platform/dev
 
-/.github/workflows/                 @your-org/platform-team @your-org/sre-leads
-/argocd/                            @your-org/platform-team
-/clusters/prod/                     @your-org/platform-team @your-org/security-team
-/policies/                          @your-org/platform-team @your-org/security-team
+/.github/workflows/                  @tharlesson-platform/dev
+/argocd/                             @tharlesson-platform/dev
+/clusters/prod/                      @tharlesson-platform/dev
+/policies/                           @tharlesson-platform/dev

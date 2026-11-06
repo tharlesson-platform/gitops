@@ -9,15 +9,50 @@ on:
 permissions:
   contents: read
 
+env:
+  SOURCE_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+  TF_INPUT: "false"
+  TF_IN_AUTOMATION: "true"
+  AWS_EC2_METADATA_DISABLED: "true"
+  AWS_SHARED_CREDENTIALS_FILE: /dev/null
+  AWS_CONFIG_FILE: /dev/null
+
 jobs:
   repository-rules:
-    runs-on: ubuntu-latest
+    runs-on: ["gitops-run-${{ github.run_id }}"]
+    timeout-minutes: 20
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           fetch-depth: 0
+          ref: ${{ env.SOURCE_SHA }}
+          persist-credentials: false
+
+      - name: Verify exact source and isolated guest
+        shell: bash
+        run: |
+          set -euo pipefail
+          [[ "$SOURCE_SHA" =~ ^[a-f0-9]{40}$ ]]
+          test "$(git rev-parse HEAD)" = "$SOURCE_SHA"
+          test -f /opt/isolation-base-ready
+          test ! -L /opt/isolation-base-ready
+          test "$(uname -s)" = Linux
+          test "$(uname -m)" = aarch64
+          test -z "${SSH_AUTH_SOCK:-}"
+          test -z "${LOCAL_ARTIFACT_TOKEN:-}"
+          test -z "${LOCAL_ARTIFACT_URL:-}"
+          for credential in AWS_ACCESS_KEY_ID AWS_SECRET_ACCESS_KEY AWS_SESSION_TOKEN AWS_WEB_IDENTITY_TOKEN_FILE AWS_CONTAINER_CREDENTIALS_FULL_URI AWS_CONTAINER_CREDENTIALS_RELATIVE_URI AWS_PROFILE AWS_DEFAULT_PROFILE; do
+            test -z "${!credential:-}"
+          done
+          mount_inventory=$(findmnt --raw --noheadings --output FSTYPE)
+          test -n "$mount_inventory"
+          while IFS= read -r filesystem; do
+            case "$filesystem" in
+              9p|virtiofs|nfs|nfs4|cifs|smbfs|fuse.sshfs|""|*[!A-Za-z0-9_.-]*) exit 1 ;;
+            esac
+          done <<< "$mount_inventory"
 
       - name: Validate repository structure and standards
         run: |
@@ -48,18 +83,52 @@ jobs:
           } >> "$GITHUB_STEP_SUMMARY"
 
   argocd-manifests:
-    runs-on: ubuntu-latest
+    runs-on: ["gitops-run-${{ github.run_id }}"]
+    timeout-minutes: 20
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ env.SOURCE_SHA }}
+          persist-credentials: false
+
+      - name: Verify exact source and isolated guest
+        shell: bash
+        run: |
+          set -euo pipefail
+          [[ "$SOURCE_SHA" =~ ^[a-f0-9]{40}$ ]]
+          test "$(git rev-parse HEAD)" = "$SOURCE_SHA"
+          test -f /opt/isolation-base-ready
+          test ! -L /opt/isolation-base-ready
+          test "$(uname -s)" = Linux
+          test "$(uname -m)" = aarch64
+          test -z "${SSH_AUTH_SOCK:-}"
+          test -z "${LOCAL_ARTIFACT_TOKEN:-}"
+          test -z "${LOCAL_ARTIFACT_URL:-}"
+          for credential in AWS_ACCESS_KEY_ID AWS_SECRET_ACCESS_KEY AWS_SESSION_TOKEN AWS_WEB_IDENTITY_TOKEN_FILE AWS_CONTAINER_CREDENTIALS_FULL_URI AWS_CONTAINER_CREDENTIALS_RELATIVE_URI AWS_PROFILE AWS_DEFAULT_PROFILE; do
+            test -z "${!credential:-}"
+          done
+          mount_inventory=$(findmnt --raw --noheadings --output FSTYPE)
+          test -n "$mount_inventory"
+          while IFS= read -r filesystem; do
+            case "$filesystem" in
+              9p|virtiofs|nfs|nfs4|cifs|smbfs|fuse.sshfs|""|*[!A-Za-z0-9_.-]*) exit 1 ;;
+            esac
+          done <<< "$mount_inventory"
 
       - name: Install kubeconform
+        shell: bash
         run: |
-          curl -sSL -o /tmp/kubeconform.tar.gz https://github.com/yannh/kubeconform/releases/download/v0.6.7/kubeconform-linux-amd64.tar.gz
-          tar -xzf /tmp/kubeconform.tar.gz -C /tmp
-          sudo mv /tmp/kubeconform /usr/local/bin/kubeconform
-          kubeconform -v
+          set -euo pipefail
+          tool_directory=$(mktemp -d "$RUNNER_TEMP/gitops-kubeconform.XXXXXXXX")
+          curl --fail --location --proto '=https' --tlsv1.2 --retry 2 --max-time 180 \
+            --output "$tool_directory/tool.tar.gz" https://github.com/yannh/kubeconform/releases/download/v0.6.7/kubeconform-linux-arm64.tar.gz
+          printf '%s  %s\n' 'dc82f79bb03c5479b1ae5fd4af221e4b5a3111f62bf01a2795d9c5c20fa96644' "$tool_directory/tool.tar.gz" | sha256sum --check --strict
+          tar -xzf "$tool_directory/tool.tar.gz" -C "$tool_directory" kubeconform
+          chmod 0755 "$tool_directory/kubeconform"
+          test "$("$tool_directory/kubeconform" -v)" = v0.6.7
+          printf '%s\n' "$tool_directory" >> "$GITHUB_PATH"
 
       - name: Validate Argo CD manifests
         run: |

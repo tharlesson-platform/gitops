@@ -13,24 +13,69 @@ permissions:
   pull-requests: read
 
 env:
+  SOURCE_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+  TF_INPUT: "false"
+  TF_IN_AUTOMATION: "true"
+  AWS_EC2_METADATA_DISABLED: "true"
+  AWS_SHARED_CREDENTIALS_FILE: /dev/null
+  AWS_CONFIG_FILE: /dev/null
   GITLEAKS_VERSION: "8.30.1"
 
 jobs:
   secret-scan:
-    runs-on: ubuntu-latest
+    runs-on: ["gitops-run-${{ github.run_id }}"]
+    timeout-minutes: 20
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           fetch-depth: 0
+          ref: ${{ env.SOURCE_SHA }}
+          persist-credentials: false
+
+      - name: Verify exact source and isolated guest
+        shell: bash
+        run: |
+          set -euo pipefail
+          [[ "$SOURCE_SHA" =~ ^[a-f0-9]{40}$ ]]
+          test "$(git rev-parse HEAD)" = "$SOURCE_SHA"
+          test -f /opt/isolation-base-ready
+          test ! -L /opt/isolation-base-ready
+          test "$(uname -s)" = Linux
+          test "$(uname -m)" = aarch64
+          test -z "${SSH_AUTH_SOCK:-}"
+          test -z "${LOCAL_ARTIFACT_TOKEN:-}"
+          test -z "${LOCAL_ARTIFACT_URL:-}"
+          for credential in AWS_ACCESS_KEY_ID AWS_SECRET_ACCESS_KEY AWS_SESSION_TOKEN AWS_WEB_IDENTITY_TOKEN_FILE AWS_CONTAINER_CREDENTIALS_FULL_URI AWS_CONTAINER_CREDENTIALS_RELATIVE_URI AWS_PROFILE AWS_DEFAULT_PROFILE; do
+            test -z "${!credential:-}"
+          done
+          mount_inventory=$(findmnt --raw --noheadings --output FSTYPE)
+          test -n "$mount_inventory"
+          while IFS= read -r filesystem; do
+            case "$filesystem" in
+              9p|virtiofs|nfs|nfs4|cifs|smbfs|fuse.sshfs|""|*[!A-Za-z0-9_.-]*) exit 1 ;;
+            esac
+          done <<< "$mount_inventory"
+
+      - name: Install verified gitleaks for Linux ARM64
+        shell: bash
+        run: |
+          set -euo pipefail
+          tool_directory=$(mktemp -d "$RUNNER_TEMP/gitops-gitleaks.XXXXXXXX")
+          curl --fail --location --proto '=https' --tlsv1.2 --retry 2 --max-time 180 \
+            --output "$tool_directory/tool.tar.gz" https://github.com/gitleaks/gitleaks/releases/download/v8.30.1/gitleaks_8.30.1_linux_arm64.tar.gz
+          printf '%s  %s\n' 'e4a487ee7ccd7d3a7f7ec08657610aa3606637dab924210b3aee62570fb4b080' "$tool_directory/tool.tar.gz" | sha256sum --check --strict
+          tar -xzf "$tool_directory/tool.tar.gz" -C "$tool_directory" gitleaks
+          chmod 0755 "$tool_directory/gitleaks"
+          test "$GITLEAKS_VERSION" = 8.30.1
+          test "$("$tool_directory/gitleaks" version)" = 8.30.1
+          printf '%s\n' "$tool_directory" >> "$GITHUB_PATH"
 
       - name: Run gitleaks
         shell: bash
         run: |
           set -euo pipefail
-          curl -fsSLo /tmp/gitleaks.tar.gz "https://github.com/gitleaks/gitleaks/releases/download/v${GITLEAKS_VERSION}/gitleaks_${GITLEAKS_VERSION}_linux_x64.tar.gz"
-          sudo tar -xzf /tmp/gitleaks.tar.gz -C /usr/local/bin gitleaks
           gitleaks git . --no-banner --redact --exit-code 1
 
       - name: Workflow summary
@@ -45,13 +90,40 @@ jobs:
 
   critical-path-guard:
     if: github.event_name == 'pull_request'
-    runs-on: ubuntu-latest
+    runs-on: ["gitops-run-${{ github.run_id }}"]
+    timeout-minutes: 20
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           fetch-depth: 0
+          ref: ${{ env.SOURCE_SHA }}
+          persist-credentials: false
+
+      - name: Verify exact source and isolated guest
+        shell: bash
+        run: |
+          set -euo pipefail
+          [[ "$SOURCE_SHA" =~ ^[a-f0-9]{40}$ ]]
+          test "$(git rev-parse HEAD)" = "$SOURCE_SHA"
+          test -f /opt/isolation-base-ready
+          test ! -L /opt/isolation-base-ready
+          test "$(uname -s)" = Linux
+          test "$(uname -m)" = aarch64
+          test -z "${SSH_AUTH_SOCK:-}"
+          test -z "${LOCAL_ARTIFACT_TOKEN:-}"
+          test -z "${LOCAL_ARTIFACT_URL:-}"
+          for credential in AWS_ACCESS_KEY_ID AWS_SECRET_ACCESS_KEY AWS_SESSION_TOKEN AWS_WEB_IDENTITY_TOKEN_FILE AWS_CONTAINER_CREDENTIALS_FULL_URI AWS_CONTAINER_CREDENTIALS_RELATIVE_URI AWS_PROFILE AWS_DEFAULT_PROFILE; do
+            test -z "${!credential:-}"
+          done
+          mount_inventory=$(findmnt --raw --noheadings --output FSTYPE)
+          test -n "$mount_inventory"
+          while IFS= read -r filesystem; do
+            case "$filesystem" in
+              9p|virtiofs|nfs|nfs4|cifs|smbfs|fuse.sshfs|""|*[!A-Za-z0-9_.-]*) exit 1 ;;
+            esac
+          done <<< "$mount_inventory"
 
       - name: Detect critical path changes
         run: |
@@ -89,13 +161,40 @@ jobs:
 
   prod-direct-change-alert:
     if: github.event_name == 'push'
-    runs-on: ubuntu-latest
+    runs-on: ["gitops-run-${{ github.run_id }}"]
+    timeout-minutes: 20
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           fetch-depth: 0
+          ref: ${{ env.SOURCE_SHA }}
+          persist-credentials: false
+
+      - name: Verify exact source and isolated guest
+        shell: bash
+        run: |
+          set -euo pipefail
+          [[ "$SOURCE_SHA" =~ ^[a-f0-9]{40}$ ]]
+          test "$(git rev-parse HEAD)" = "$SOURCE_SHA"
+          test -f /opt/isolation-base-ready
+          test ! -L /opt/isolation-base-ready
+          test "$(uname -s)" = Linux
+          test "$(uname -m)" = aarch64
+          test -z "${SSH_AUTH_SOCK:-}"
+          test -z "${LOCAL_ARTIFACT_TOKEN:-}"
+          test -z "${LOCAL_ARTIFACT_URL:-}"
+          for credential in AWS_ACCESS_KEY_ID AWS_SECRET_ACCESS_KEY AWS_SESSION_TOKEN AWS_WEB_IDENTITY_TOKEN_FILE AWS_CONTAINER_CREDENTIALS_FULL_URI AWS_CONTAINER_CREDENTIALS_RELATIVE_URI AWS_PROFILE AWS_DEFAULT_PROFILE; do
+            test -z "${!credential:-}"
+          done
+          mount_inventory=$(findmnt --raw --noheadings --output FSTYPE)
+          test -n "$mount_inventory"
+          while IFS= read -r filesystem; do
+            case "$filesystem" in
+              9p|virtiofs|nfs|nfs4|cifs|smbfs|fuse.sshfs|""|*[!A-Za-z0-9_.-]*) exit 1 ;;
+            esac
+          done <<< "$mount_inventory"
 
       - name: Alert direct changes in production paths
         run: |
