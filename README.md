@@ -354,7 +354,6 @@ real Linux ARM64 nem comprova estado de cluster. Sem Docker/VM, Root/runtime,
 API write, commit/push ou setup de Code Quality nesta preparação.
 Rollback desta fase é não publicar/admitir a fonte, após revisão independente.
 
-
 ### Ownership e proteção da integração CI
 
 Este patch substitui os placeholders de CODEOWNERS pelo time existente
