@@ -375,3 +375,23 @@ não se presume solicitação retroativa de code owner. Nenhum manifest/overlay,
 regra de promoção ou `prod-approved` é alterado. Produção continua exigindo a
 aprovação manual documentada. A proteção proposta só será aplicada com preflight
 e readback próprios e não é instalada pelo código deste patch.
+
+## Baseline de segurança dos workloads de referência
+
+Os exemplos aplicáveis usam UID/GID 10001 sem root, seccomp RuntimeDefault,
+capabilities removidas, sem privilege escalation e filesystem raiz somente
+leitura. Quando necessário, /tmp é um emptyDir com limite de 64Mi.
+Esta alteração é validada por renderização e testes locais; não executa
+Terraform apply, kubectl apply, sync Argo CD ou promoção para produção.
+Não comprova compatibilidade de um workload privado real nem operação live.
+
+As imagens sample-api e sample-worker continuam placeholders de referência,
+não artefatos publicáveis. Antes de qualquer uso real, substitua-as por
+imagens próprias fixadas por digest e valide UID, diretórios graváveis e
+healthchecks no ambiente alvo. Os limites de metrics-server são um ponto
+inicial do exemplo, não dimensionamento de um cluster real. As URLs Argo
+CD deste repositório também continuam placeholders; nenhum reconcilador
+real foi configurado por esta PR.
+
+Rollback: reverter esta PR com revisão; não alterar clusters ou remover dados
+para reverter somente os arquivos de referência.
